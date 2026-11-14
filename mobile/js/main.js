@@ -24,19 +24,34 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
-// ---- 资源预加载 ----
+// ---- 资源预加载（OpenCV 与模型并行下载；慢网时给出明确提示）----
 async function preload() {
   burstBtn.disabled = true;
   say('加载算法资源（首次约 15MB，之后离线可用）…');
-  await loadOpenCv({ onProgress: (f) => setBar(f * 0.7) });
-  lm = await createLandmarker({
-    wasmBase: 'vendor/tasks-vision/wasm',
-    modelUrl: 'models/face_landmarker.task',
-  });
-  setBar(1);
-  say('');
+  let lastProg = Date.now();
+  const slowTimer = setInterval(() => {
+    if (Date.now() - lastProg > 12000 && !lm) {
+      say('网络较慢，资源下载停滞…建议：① 开启代理后刷新；或 ② 使用国内镜像站点（魔搭）');
+    }
+  }, 3000);
+  try {
+    const cvReady = loadOpenCv({
+      onProgress: (f) => { setBar(f * 0.6); lastProg = Date.now(); },
+    });
+    const lmReady = (async () => {
+      lm = await createLandmarker({
+        wasmBase: 'vendor/tasks-vision/wasm',
+        modelUrl: 'models/face_landmarker.task',
+      });
+    })();
+    await Promise.all([cvReady, lmReady]);
+    setBar(1);
+    say('');
+  } finally {
+    clearInterval(slowTimer);
+  }
 }
-preload().catch((e) => say('资源加载失败：' + e.message + '（刷新重试）'));
+preload().catch((e) => { setBar(0); say('资源加载失败：' + e.message + '（刷新重试）'); });
 
 // ---- 摄像头 ----
 async function openCamera() {

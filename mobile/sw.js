@@ -1,5 +1,5 @@
-// PWA 预缓存：全部算法资源离线可用（首次联网后即可飞行模式使用）。
-const CACHE = 'gpmerge-mobile-v2';
+// PWA Ԥ���棺ȫ���㷨��Դ���߿��ã��״������󼴿ɷ���ģʽʹ�ã���
+const CACHE = 'gpmerge-mobile-v3';
 const ASSETS = [
   './',
   './index.html',
