@@ -24,6 +24,8 @@ models/face_landmarker_stored.task
 # 构建产物（上传包由 space/ 与 modelscope_space/ 目录生成）
 space_upload.zip
 modelscope_space.zip
+modelscope_space/ms.zip
+modelscope_space/ms.zip.loaded
 
 # 开发期检查用样图（未在文档中引用）
 data/candidates/_check.png
