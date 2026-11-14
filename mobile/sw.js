@@ -1,5 +1,7 @@
 // PWA 预缓存：全部算法资源离线可用（首次联网后即可飞行模式使用）。
-const CACHE = 'gpmerge-mobile-v3';
+// 注意：运行时 fetch 不做缓存写回——慢网中断会产生"头完整 body 截断"的坏条目
+// （曾导致模型 zip 解析失败且刷新无效）；install 的 addAll 具有原子完整性。
+const CACHE = 'gpmerge-mobile-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -34,11 +36,6 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(
-    caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
-      const copy = res.clone();
-      caches.open(CACHE).then((c) => c.put(e.request, copy));
-      return res;
-    }))
-  );
+  // 预缓存命中直接用；未预缓存的资源直连网络（不写回缓存）
+  e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request)));
 });
