@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>AI 合影助手 · 手机连拍</title>
+<style>
+  :root { color-scheme: dark; }
+  body { font-family: system-ui, sans-serif; background: #111; color: #eee;
+         margin: 0; padding: 16px; max-width: 720px; margin-inline: auto; }
+  h1 { font-size: 20px; margin: 4px 0 12px; }
+  .sub { color: #9ab; font-size: 13px; line-height: 1.5; margin-bottom: 16px; }
+  video { width: 100%; border-radius: 12px; background: #000; }
+  .row { display: flex; gap: 12px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+  button { font-size: 16px; padding: 12px 20px; border-radius: 10px; border: 0;
+           background: #2b6cff; color: #fff; font-weight: 600; }
+  button:disabled { opacity: .4; }
+  button.secondary { background: #3a4a66; }
+  label { font-size: 14px; color: #bcd; }
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+            gap: 6px; margin-top: 12px; }
+  .thumbs img { width: 100%; border-radius: 6px; }
+  #result img { width: 100%; border-radius: 12px; margin-top: 12px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+  td, th { border: 1px solid #333; padding: 6px 8px; text-align: left; }
+  #msg { color: #ffb347; font-size: 14px; min-height: 18px; margin-top: 10px; white-space: pre-wrap; }
+  .hint { color: #7f8ea3; font-size: 12px; }
+</style>
+</head>
+<body>
+<h1>AI 合影助手 · 手机连拍</h1>
+<div class="sub">大家站好 → 开启摄像头 → 开始连拍（约 1.6 秒抓 N 帧）→ 自动合并出一张全员状态在线的成片。<br>
+成片与连拍会归档到电脑的 <code>data/real_burst/</code>，供评分权重校准。</div>
+
+<video id="video" playsinline autoplay muted></video>
+<div class="row">
+  <button id="startBtn">开启摄像头</button>
+  <button id="flipBtn" class="secondary" disabled>切换前/后置</button>
+  <label>帧数 <input id="nFrames" type="number" min="8" max="16" value="12" style="width:56px"></label>
+  <label>间隔(ms) <input id="interval" type="number" min="80" max="200" step="10" value="130" style="width:70px"></label>
+</div>
+<div class="row">
+  <button id="burstBtn" disabled>开始连拍并合并</button>
+</div>
+<div id="msg"></div>
+<div class="thumbs" id="thumbs"></div>
+<div id="result"></div>
+<div class="hint" style="margin-top:16px">首次访问浏览器会提示"不安全/证书风险"：这是电脑自签证书，点「高级 → 继续访问」即可；摄像头权限请选允许。</div>
+
+<script>
+const video = document.getElementById('video');
+const startBtn = document.getElementById('startBtn');
+const flipBtn = document.getElementById('flipBtn');
+const burstBtn = document.getElementById('burstBtn');
+const msgEl = document.getElementById('msg');
+const thumbsEl = document.getElementById('thumbs');
+const resultEl = document.getElementById('result');
+let stream = null, facing = 'environment';
+
+function say(t) { msgEl.textContent = t || ''; }
+
+async function openCamera() {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 720 } },
+      audio: false });
+    video.srcObject = stream;
+    flipBtn.disabled = false; burstBtn.disabled = false;
+    say('');
+  } catch (e) {
+    say('摄像头打开失败：' + e.message + '（检查权限是否允许、是否被其他应用占用）');
+  }
+}
+
+startBtn.onclick = () => { startBtn.textContent = '重新开启'; openCamera(); };
+flipBtn.onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; openCamera(); };
+
+async function grabFrame(i, canvas, ctx) {
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  ctx.drawImage(video, 0, 0);
+  return new Promise(res => canvas.toBlob(
+    b => res(new File([b], `frame_${String(i).padStart(3, '0')}.jpg`, { type: 'image/jpeg' })),
+    'image/jpeg', 0.92));
+}
+
+burstBtn.onclick = async () => {
+  if (!stream || !video.videoWidth) { say('请先开启摄像头'); return; }
+  burstBtn.disabled = true; startBtn.disabled = true; flipBtn.disabled = true;
+  resultEl.innerHTML = ''; thumbsEl.innerHTML = '';
+  try {
+    const n = Math.max(8, Math.min(16, +document.getElementById('nFrames').value || 12));
+    const gap = Math.max(80, Math.min(200, +document.getElementById('interval').value || 130));
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const frames = [];
+    for (let i = 0; i < n; i++) {
+      const t0 = performance.now();
+      const f = await grabFrame(i, canvas, ctx);
+      frames.push(f);
+      const th = document.createElement('img');
+      th.src = URL.createObjectURL(f);
+      thumbsEl.appendChild(th);
+      say(`已抓取 ${i + 1}/${n} 帧`);
+      const wait = gap - (performance.now() - t0);
+      if (wait > 0) await new Promise(r => setTimeout(r, wait));
+    }
+    say('上传合并中…（几秒钟）');
+    const fd = new FormData();
+    frames.forEach(f => fd.append('frames', f, f.name));
+    const r = await fetch('/api/merge', { method: 'POST', body: fd });
+    const data = await r.json();
+    if (!r.ok) { say('失败：' + (data.detail || r.statusText)); return; }
+
+    say(data.info);
+    const mk = (src, cap) => {
+      const fig = document.createElement('figure');
+      fig.style.margin = '0';
+      fig.innerHTML = `<figcaption style="font-size:13px;color:#9ab;margin:8px 0 4px">${cap}</figcaption>`;
+      const img = new Image(); img.src = src; img.style.width = '100%';
+      fig.appendChild(img); return fig;
+    };
+    resultEl.appendChild(mk(data.merged, '合并成片（长按图片可保存）'));
+    resultEl.appendChild(mk(data.annotated, '标注图（绿=保留 橙=替换）'));
+    if (data.rows && data.rows.length) {
+      const tb = document.createElement('table');
+      tb.innerHTML = '<tr><th>人</th><th>动作</th><th>基准分</th><th>来源分</th><th>EAR基准</th><th>EAR来源</th></tr>';
+      data.rows.forEach(row => { const tr = document.createElement('tr');
+        row.forEach(c => { const td = document.createElement('td'); td.textContent = c; tr.appendChild(td); });
+        tb.appendChild(tr); });
+      resultEl.appendChild(tb);
+    }
+  } catch (e) {
+    say('出错了：' + e.message);
+  } finally {
+    burstBtn.disabled = false; startBtn.disabled = false; flipBtn.disabled = false;
+  }
+};
+</script>
+</body>
+</html>

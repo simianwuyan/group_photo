@@ -1,0 +1,31 @@
+# 运行环境与构建产物
+.venv/
+__pycache__/
+*.pyc
+
+# 运行输出（out/ 及历史调参产物 out_forced/out_hard/out_s* 等）
+out*/
+*.log
+
+# 自签证书（含私钥，绝不入库）
+.certs/
+
+# 真实人脸数据（隐私，不入库）
+data/real_burst/
+
+# 可再生成的合成连拍与缩略图（synth.py / pick_base.py 一键重建）
+data/burst*/
+data/thumbs/
+data/base_thumb.png
+
+# 模型重复副本（正式模型为 models/face_landmarker.task）
+models/face_landmarker_stored.task
+
+# 构建产物（Space 上传包由 space/ 目录生成）
+space_upload.zip
+
+# 开发期检查用样图（未在文档中引用）
+data/candidates/_check.png
+
+# 工具/临时文件
+.tools/
