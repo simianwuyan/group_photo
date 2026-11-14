@@ -8,6 +8,9 @@ import { estimateSimilarityTransform } from './umeyama.js';
 import { ALIGN_ANCHORS, makeFace } from './mp-landmarks.js';
 import { MERGE_CONFIG, MAX_SIDE, faceGray, warpTo, blendPerson, swapFace } from './compositing.js';
 
+// 颜色转换数字枚举（同 compositing.js：构建未导出 COLOR_* 常量）
+const COLOR_RGBA2BGR = 3, COLOR_BGR2GRAY = 6;
+
 // ImageBitmap → { source: 缩放后的画布（供检测）, bgr: OpenCV BGR Mat }
 // （等价 cv2.imread 的 BGR 布局）
 function bitmapToPair(bitmap) {
@@ -25,7 +28,7 @@ function bitmapToPair(bitmap) {
   }
   const rgba = cv.matFromImageData(ctx.getImageData(0, 0, w, h));
   const bgr = new cv.Mat();
-  cv.cvtColor(rgba, bgr, cv.COLOR_RGBA2BGR);
+  cv.cvtColor(rgba, bgr, COLOR_RGBA2BGR);
   rgba.delete();
   return { source: cnv, bgr };
 }
@@ -77,7 +80,7 @@ export async function mergeBurst(images, landmarker, cfg = MERGE_CONFIG, onProgr
   // —— 3. 逐人逐帧原始指标 ——
   const grayMats = framesBgr.map((f) => {
     const g = new cv.Mat();
-    cv.cvtColor(f, g, cv.COLOR_BGR2GRAY);
+    cv.cvtColor(f, g, COLOR_BGR2GRAY);
     return g;
   });
   const raw = new Map();   // pid -> Map(fi -> metrics)

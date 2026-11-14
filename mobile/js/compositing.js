@@ -6,6 +6,9 @@
 import { estimateSimilarityTransform } from './umeyama.js';
 import { ALIGN_ANCHORS } from './mp-landmarks.js';
 
+// 颜色转换数字枚举（OpenCV imgproc 稳定值；@techstark 5.0 构建未导出 COLOR_* 常量）
+const COLOR_RGBA2BGR = 3, COLOR_BGR2GRAY = 6, COLOR_BGR2LAB = 44, COLOR_LAB2BGR = 56;
+
 export const MERGE_CONFIG = {
   earOpenRatio: 0.72,   // 基准帧中低于此睁眼分的人必须被替换
   minGain: 0.05,        // 替换带来的总分提升下限（最小替换原则）
@@ -68,8 +71,8 @@ export function blendPerson(baseMat, warpedMat, dstFace, cfg = MERGE_CONFIG) {
     for (let i = 0; i < W * H; i++) if (m[i] > 0.5) selCount++;
     if (selCount > 100) {
       const dLab = new cv.Mat(), sLab = new cv.Mat();
-      cv.cvtColor(baseMat, dLab, cv.COLOR_BGR2LAB);
-      cv.cvtColor(warpedMat, sLab, cv.COLOR_BGR2LAB);
+      cv.cvtColor(baseMat, dLab, COLOR_BGR2LAB);
+      cv.cvtColor(warpedMat, sLab, COLOR_BGR2LAB);
       const dd = dLab.data, ss = sLab.data;
       for (let c = 0; c < 3; c++) {
         let s1 = 0, s2 = 0, m1 = 0;
@@ -96,7 +99,7 @@ export function blendPerson(baseMat, warpedMat, dstFace, cfg = MERGE_CONFIG) {
         }
       }
       const back = new cv.Mat();
-      cv.cvtColor(sLab, back, cv.COLOR_LAB2BGR);
+      cv.cvtColor(sLab, back, COLOR_LAB2BGR);
       warped = back;
       dLab.delete(); sLab.delete();
     }
@@ -128,10 +131,18 @@ export function swapFace(baseMat, dstFace, srcMat, srcFace, cfg = MERGE_CONFIG) 
   return out;
 }
 
-// BGR Mat → RGBA Mat → canvas（展示用；调用方负责 delete 返回的 Mat 或直接 imshow）
+// BGR Mat → canvas（手写像素转换，不依赖 imshow/COLOR 枚举）
 export function matToCanvas(bgrMat, canvasEl) {
-  const rgba = new cv.Mat();
-  cv.cvtColor(bgrMat, rgba, cv.COLOR_BGR2RGBA);
-  cv.imshow(canvasEl, rgba);
-  rgba.delete();
+  const w = bgrMat.cols, h = bgrMat.rows;
+  canvasEl.width = w; canvasEl.height = h;
+  const ctx = canvasEl.getContext('2d');
+  const img = ctx.createImageData(w, h);
+  const d = bgrMat.data, o = img.data;
+  for (let i = 0; i < w * h; i++) {
+    o[i * 4] = d[i * 3 + 2];      // R
+    o[i * 4 + 1] = d[i * 3 + 1];  // G
+    o[i * 4 + 2] = d[i * 3];      // B
+    o[i * 4 + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
 }
