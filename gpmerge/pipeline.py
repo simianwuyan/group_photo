@@ -71,6 +71,8 @@ class MergeResult:
     annotated: np.ndarray          # 合并结果 + 框/标注
     base_frame_idx: int
     rows: list[PersonRow] = field(default_factory=list)
+    raw: dict = field(default_factory=dict)     # pid -> {frame: 原始指标}（调试/对照用）
+    scores: dict = field(default_factory=dict)  # pid -> {frame: 总分}（调试/对照用）
 
 
 def _load_frames(paths: list[Path]) -> list[np.ndarray]:
@@ -290,7 +292,8 @@ def merge_burst(frame_paths: list[str | Path],
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 1, cv2.LINE_AA)
 
     return MergeResult(merged=base, annotated=annotated,
-                       base_frame_idx=base_idx, rows=rows)
+                       base_frame_idx=base_idx, rows=rows,
+                       raw=raw, scores=scores)
 
 
 def save_report(res: MergeResult, frame_paths: list[str | Path],

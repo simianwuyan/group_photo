@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>AI 合影助手 · 端侧连拍</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  :root { color-scheme: dark; }
+  * { -webkit-tap-highlight-color: transparent; }
+  body { font-family: system-ui, sans-serif; background: #0e1116; color: #e8edf4;
+         margin: 0; padding: 14px; max-width: 760px; margin-inline: auto;
+         padding-bottom: env(safe-area-inset-bottom); }
+  h1 { font-size: 19px; margin: 6px 0 10px; }
+  .sub { color: #93a4bb; font-size: 13px; line-height: 1.5; margin-bottom: 14px; }
+  video { width: 100%; border-radius: 12px; background: #000; }
+  .row { display: flex; gap: 10px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+  button { font-size: 16px; padding: 13px 20px; border-radius: 10px; border: 0;
+           background: #2b6cff; color: #fff; font-weight: 600; }
+  button:disabled { opacity: .35; }
+  button.secondary { background: #35435c; }
+  label { font-size: 14px; color: #b7c6da; }
+  #bar { height: 6px; border-radius: 3px; background: #232c3a; overflow: hidden; margin: 10px 0; }
+  #bar > div { height: 100%; width: 0; background: #4d8dff; transition: width .2s; }
+  #msg { color: #ffb347; font-size: 14px; min-height: 18px; margin: 8px 0; white-space: pre-wrap; }
+  #result img { width: 100%; border-radius: 12px; margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+  td, th { border: 1px solid #2c3646; padding: 6px 8px; text-align: left; }
+  .hint { color: #6f7f95; font-size: 12px; margin-top: 14px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<h1>AI 合影助手 · 端侧连拍</h1>
+<div class="sub">连拍 → 逐人评分（睁眼/清晰度/亮度/表情/视线）→ 选基准底片 → 只替换状态不佳者。
+<b>全部计算在本机完成，任何照片都不会上传。</b></div>
+
+<video id="video" playsinline autoplay muted></video>
+<div id="bar"><div></div></div>
+<div id="msg"></div>
+<div class="row">
+  <button id="startBtn">开启摄像头</button>
+  <button id="flipBtn" class="secondary" disabled>前/后置</button>
+  <label>帧数 <input id="nFrames" type="number" min="6" max="16" value="12" style="width:56px"></label>
+</div>
+<div class="row">
+  <button id="burstBtn" disabled>开始连拍并合并</button>
+</div>
+<div id="result"></div>
+<table id="table" style="display:none"></table>
+<div class="hint">首次使用需下载算法资源（约 15MB，之后离线可用）。安装到桌面：浏览器菜单 →「添加到主屏幕」。
+成片长按图片即可保存。PC 端完整版与说明见 GitHub 仓库。</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

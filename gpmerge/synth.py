@@ -51,15 +51,19 @@ def close_eyes(canvas: np.ndarray, face: Face) -> None:
 
 def make_burst(base_path: str | Path, out_dir: str | Path,
                n_frames: int = 12, blink_prob: float = 0.25,
-               seed: int = 42) -> dict:
-    """生成连拍序列 + ground truth，返回 GT 字典（同时存 out_dir/gt.json）。"""
+               seed: int = 42, landmarker: Landmarker | None = None) -> dict:
+    """生成连拍序列 + ground truth，返回 GT 字典（同时存 out_dir/gt.json）。
+
+    landmarker 可由调用方注入（app.py/cli.py 传进程内单例，避免同进程
+    构造第二个 FaceLandmarker——个别环境下双实例初始化会死锁）。
+    """
     rng = random.Random(seed)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     img = imread_exif(base_path)
     assert img is not None, f"读图失败: {base_path}"
-    lm = Landmarker()
+    lm = landmarker or Landmarker()
     faces = lm.detect(img)
 
     # 每人随机指定闭眼帧集合（保证每人至少有一帧睁眼，否则没法救）

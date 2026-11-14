@@ -26,6 +26,11 @@ space_upload.zip
 modelscope_space.zip
 modelscope_space/ms.zip
 modelscope_space/ms.zip.loaded
+modelscope_space/ips.txt
+
+# 对照验证数据与无头测试上报（由 tools/export_ref.py 生成）
+mobile/test/ref*.json
+headless_report.json
 
 # 开发期检查用样图（未在文档中引用）
 data/candidates/_check.png

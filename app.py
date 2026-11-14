@@ -103,7 +103,8 @@ def run_demo(img: cv2.Mat, n_frames: int, blink_prob: float, seed: int) -> tuple
     cv2.imwrite(str(tmp_in), bgr)
 
     gt = make_burst(tmp_in, work / "burst", n_frames=int(n_frames),
-                    blink_prob=float(blink_prob), seed=int(seed))
+                    blink_prob=float(blink_prob), seed=int(seed),
+                    landmarker=_landmarker())
     frame_paths = sorted((work / "burst").glob("frame_*.jpg"))
     res = merge_burst(frame_paths, MODEL, landmarker=_landmarker())
 

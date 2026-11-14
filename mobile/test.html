@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JS 管线对照验证（与 Python gt.json）</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; max-width: 860px; }
+  pre { background: #f4f4f4; padding: 10px; overflow-x: auto; font-size: 12px; }
+  canvas { max-width: 100%; border: 1px solid #ccc; margin-top: 8px; }
+  .ok { color: #090; } .bad { color: #c00; }
+  button { font-size: 15px; padding: 10px 18px; }
+</style>
+</head>
+<body>
+<h2>JS 管线对照验证</h2>
+<p>服务根需为项目根（访问 /mobile/test.html）。默认抓取 <code>../data/burst/</code> 的 12 帧 + gt.json，
+与 Python 验证口径对照：每人"疑似闭眼帧"（EAR&lt;0.20 且相对分&lt;0.72）必须与 gt 一致。</p>
+<button id="run">运行对照验证</button>
+<div id="status"></div>
+<pre id="log"></pre>
+<canvas id="merged"></canvas>
+<canvas id="annotated"></canvas>
+
+<script type="module">
+import { loadOpenCv } from './js/ocv.js';
+import { createLandmarker } from './js/mp-landmarks.js';
+import { mergeBurst } from './js/pipeline.js';
+import { eyesOpenScore, EAR_BLINK_ABS, EAR_RATIO_OPEN } from './js/scoring.js';
+
+const $ = (id) => document.getElementById(id);
+const LOG_LINES = [];
+const log = (t) => {
+  $('log').innerHTML += t + '\n';
+  LOG_LINES.push(t.replace(/<[^>]+>/g, ''));
+};
+const say = (t) => { $('status').textContent = t; };
+
+// 无头验证上报：本地 devserver（:7866）时把结果 POST 回去
+let lastStage = '';
+function report(finalState) {
+  if (location.port !== '7866') return;
+  fetch('/report', { method: 'POST',
+                     body: JSON.stringify({ state: finalState, log: LOG_LINES }) })
+    .catch(() => {});
+}
+function reportProgress(stage) {
+  if (stage === lastStage) return;
+  lastStage = stage;
+  report(stage);
+}
+
+$('run').onclick = async () => {
+  $('run').disabled = true;
+  document.title = 'RUNNING';   // 无头验证标记
+  $('log').textContent = '';
+  try {
+    say('加载 OpenCV.js（约 13MB，首次较慢）…');
+    const t0 = performance.now();
+    await loadOpenCv({ onProgress: (f) => say(`加载 OpenCV.js ${(f * 100).toFixed(0)}%`) });
+    log(`OpenCV.js 就绪 ${(performance.now() - t0).toFixed(0)}ms`);
+    reportProgress('opencv-ready');
+
+    say('加载 FaceLandmarker（GPU delegate）…');
+    reportProgress('loading-landmarker');
+    const lm = await createLandmarker({
+      wasmBase: 'vendor/tasks-vision/wasm',
+      modelUrl: 'models/face_landmarker.task',
+    });
+    log('FaceLandmarker 就绪');
+
+    // 抓取合成连拍 + gt
+    const N = 12;
+    say('载入合成连拍 data/burst …');
+    const gt = await (await fetch('../data/burst/gt.json')).json();
+    const images = [];
+    for (let k = 0; k < N; k++) {
+      const name = `frame_${String(k).padStart(3, '0')}.jpg`;
+      const blob = await (await fetch(`../data/burst/${name}`)).blob();
+      const bmp = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+      images.push({ source: bmp, name });
+    }
+    log(`已载入 ${images.length} 帧 (${images[0].source.width}x${images[0].source.height})`);
+
+    // 跑 JS 管线
+    const t1 = performance.now();
+    const res = await mergeBurst(images, lm, undefined,
+      (stage, f) => { say(`管线 [${stage}] ${(f * 100).toFixed(0)}%`); reportProgress('pipeline-' + stage); });
+    const dt = performance.now() - t1;
+    log(`管线完成 ${(dt / 1000).toFixed(2)}s，基准帧: ${res.names[res.baseFrameIdx]}`);
+
+    // 逐人逐帧 EAR 表
+    for (const pid of res.personIds) {
+      const cells = [];
+      for (let fi = 0; fi < res.names.length; fi++) {
+        const m = res.raw.get(pid).get(fi);
+        cells.push(m ? m.ear.toFixed(3) : '  -  ');
+      }
+      log(`P${pid} EAR: ${cells.join(' ')}`);
+    }
+
+    // 与 gt 对照（realcheck 口径：ear<0.20 且相对分<0.72 判闭眼）
+    let allOk = true;
+    for (const [pidS, blink] of Object.entries(gt.blink_frames)) {
+      const pid = +pidS;
+      const perRaw = res.raw.get(pid);
+      let maxEar = 0;
+      for (const m of perRaw.values()) if (m.ear > maxEar) maxEar = m.ear;
+      const predicted = [];
+      for (const [fi, m] of perRaw) {
+        const eyes = eyesOpenScore(m.ear, maxEar);
+        if (m.ear < 0.20 && eyes < EAR_RATIO_OPEN) predicted.push(fi);
+      }
+      const hit = blink.filter((b) => predicted.includes(b)).length;
+      const extra = predicted.filter((p) => !blink.includes(p)).length;
+      const ok = hit === blink.length && extra === 0;
+      allOk &= ok;
+      log(`P${pid} 闭眼判定 gt=[${blink}] js=[${predicted}] ${ok ? '<span class="ok">OK</span>' : '<span class="bad">!!</span>'} (漏${blink.length - hit} 多${extra})`);
+    }
+
+    // 决策摘要
+    for (const r of res.rows) {
+      log(`P${r.personId} ${r.action} src=${res.names[r.srcFrame]} score ${r.scoreBase.toFixed(3)}->${r.scoreSrc.toFixed(3)} ear ${r.earBase.toFixed(3)}->${r.earSrc.toFixed(3)}`);
+    }
+    log(allOk ? '对照结论：<span class="ok">与 gt.json 完全一致 PASS</span>'
+              : '对照结论：<span class="bad">存在不一致 FAIL</span>');
+    say('完成');
+    document.title = allOk ? 'PASS' : 'FAIL';   // 无头验证提取标记
+    report(allOk ? 'PASS' : 'FAIL');
+
+    // 展示成片
+    import('./js/compositing.js').then(({ matToCanvas }) => {
+      matToCanvas(res.merged, $('merged'));
+      matToCanvas(res.annotated, $('annotated'));
+    });
+  } catch (e) {
+    say('出错：' + e.message);
+    log('ERROR: ' + (e.stack || e.message));
+    console.error(e);
+    report('ERROR');
+  }
+  $('run').disabled = false;
+};
+
+// 无头验证支持：?autorun=1 自动运行
+if (new URLSearchParams(location.search).get('autorun') === '1') {
+  setTimeout(() => $('run').click(), 300);
+}
+</script>
+</body>
+</html>

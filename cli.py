@@ -62,15 +62,19 @@ def main() -> None:
     else:
         src = Path(args.dir)
 
+    from gpmerge.landmarks import Landmarker
+    lm = Landmarker(MODEL)   # 进程内单实例（同进程第二个 FaceLandmarker 初始化会死锁）
+
     if args.synth:
-        gt = make_burst(args.synth, src, n_frames=args.n_frames, seed=args.seed)
+        gt = make_burst(args.synth, src, n_frames=args.n_frames, seed=args.seed,
+                        landmarker=lm)
         n_blinks = sum(len(v) for v in gt["blink_frames"].values())
         print(f"[synth] {len(gt['persons'])} 人 x {args.n_frames} 帧，"
               f"共 {n_blinks} 处闭眼 -> {src}")
 
     paths = frame_paths(src)
     assert paths, f"{src} 里没有图片"
-    res = merge_burst(paths, MODEL)
+    res = merge_burst(paths, MODEL, landmarker=lm)
 
     names = [p.name for p in paths]
     print(f"[merge] 基准底片: {names[res.base_frame_idx]}")

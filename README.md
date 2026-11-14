@@ -48,6 +48,9 @@ curl -L -o models/face_landmarker.task ^
 
 # 6. 手机连拍（与 app.py 可同时运行）
 .venv\Scripts\python.exe phone.py # 终端打印局域网地址+二维码，手机同 Wi-Fi 扫码即开
+
+# 7. 纯端侧手机网站（无需电脑，算法跑在手机浏览器里）
+#    mobile/ 静态站，托管到任意静态空间（魔搭 Static / GitHub Pages）即可
 ```
 
 Web 界面三个标签页：
@@ -58,6 +61,20 @@ Web 界面三个标签页：
 手机连拍：运行 `phone.py` 后手机浏览器（同 Wi-Fi）打开打印的地址，后置摄像头
 一键抓帧上传合并；首次访问需在浏览器点「高级 → 继续访问」（自签 HTTPS，
 浏览器摄像头权限要求安全上下文）。
+
+## 纯端侧手机网站（mobile/）
+
+算法的 JS 移植版：MediaPipe tasks-vision（478 点关键点，GPU delegate）+ OpenCV.js
+（仿射/羽化/LAB 合成）+ 手写 Umeyama 相似变换。**连拍、评分、换脸全部在手机
+本地完成，零上传零服务器**；PWA 可安装到桌面，首次联网后离线可用。
+
+- `index.html` 手机端页面（连拍 → 本地合并 → 成片/标注/报告）
+- `test.html` 对照验证页：载入合成连拍与 Python gt.json 对照
+- `test/compare.mjs` node 对照脚本：`node test/compare.mjs test/ref.json`
+  （参考数据由 `tools/export_ref.py` 从 Python 管线导出）
+- 部署：任意静态托管（`tools/devserver.py` 为本地开发服务器）
+
+## 目录结构
 
 ## 目录结构
 
@@ -74,10 +91,13 @@ cli.py           命令行入口
 app.py           Gradio 界面
 phone.py         手机连拍服务（局域网 HTTPS + 二维码，抓帧上传合并）
 phone_page.html  手机端抓帧页面
+mobile/          纯端侧手机网站（JS 版算法，零上传零服务器，PWA）
 tools/
   pick_base.py   候选基图检测评估
   verify.py      自动验证：EAR 可分性 / 决策与 GT 一致性 / 成片复检
   realcheck.py   真实连拍校准（无 GT）：指标表 / EAR 分布 / 拼图核对身份关联
+  export_ref.py  导出 Python 管线参考数据（JS 移植对照）
+  devserver.py   开发用静态服务器（.mjs/.wasm MIME + 无头验证上报）
 data/candidates/ 测试合影（Unsplash）
 out*/            运行输出：merged.jpg / annotated.jpg / report.csv
 ```
