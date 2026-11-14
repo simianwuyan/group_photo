@@ -21,8 +21,9 @@ data/base_thumb.png
 # 模型重复副本（正式模型为 models/face_landmarker.task）
 models/face_landmarker_stored.task
 
-# 构建产物（Space 上传包由 space/ 目录生成）
+# 构建产物（上传包由 space/ 与 modelscope_space/ 目录生成）
 space_upload.zip
+modelscope_space.zip
 
 # 开发期检查用样图（未在文档中引用）
 data/candidates/_check.png

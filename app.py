@@ -25,7 +25,11 @@ from gpmerge.pipeline import save_report  # noqa: E402
 from gpmerge.synth import make_burst  # noqa: E402
 
 MODEL = ROOT / "models" / "face_landmarker.task"
-IS_SPACE = bool(os.environ.get("SPACE_ID"))  # HF Spaces 云端：隐藏摄像头 Tab
+IS_SPACE = bool(
+    os.environ.get("SPACE_ID")                             # HF Spaces
+    or os.environ.get("GPMERGE_CLOUD")                     # 显式开关（任意云端托管）
+    or any(k.startswith("MODELSCOPE") for k in os.environ)  # 魔搭创空间
+)  # 云端没有摄像头设备：隐藏摄像头连拍 Tab
 _LM = None  # 进程内复用，首次调用时懒加载
 
 MODEL_URL = ("https://storage.googleapis.com/mediapipe-models/face_landmarker/"

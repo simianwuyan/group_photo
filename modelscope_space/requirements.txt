@@ -1,0 +1,5 @@
+numpy
+opencv-contrib-python>=5.0
+mediapipe>=1.2
+gradio
+pillow
