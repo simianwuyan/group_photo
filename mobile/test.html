@@ -63,10 +63,10 @@ $('run').onclick = async () => {
 
     say('加载 FaceLandmarker（GPU delegate）…');
     reportProgress('loading-landmarker');
-    const modelBuf = await fetchValidatedModel('models/face_landmarker.task');
+    await fetchValidatedModel('models/face_landmarker.task');
     const lm = await createLandmarker({
       wasmBase: 'vendor/tasks-vision/wasm',
-      modelBuffer: modelBuf,
+      modelUrl: 'models/face_landmarker.task',
     });
     log('FaceLandmarker 就绪');
 

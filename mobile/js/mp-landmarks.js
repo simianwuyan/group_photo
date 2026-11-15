@@ -8,10 +8,13 @@ export const IRIS_L = 473;
 export const IRIS_R = 468;
 export const ALIGN_ANCHORS = [33, 263, 133, 362, 1, 61, 291, 152];
 
-export async function createLandmarker({ wasmBase, modelBuffer, numFaces = 30, runningMode = 'IMAGE' }) {
+export async function createLandmarker({ wasmBase, modelUrl, numFaces = 30, runningMode = 'IMAGE' }) {
   const fileset = await FilesetResolver.forVisionTasks(wasmBase);
   const opts = (delegate) => ({
-    baseOptions: { modelAssetBuffer: modelBuffer, delegate },
+    // 注意：不用 modelAssetBuffer——tasks-vision 1.2.3 的 buffer 路径实测会报
+    // "Unable to open zip archive"（即使 buffer 已通过完整性校验）；
+    // modelAssetPath + SW 缓存自愈（fetchValidatedModel 写回正确字节）可靠。
+    baseOptions: { modelAssetPath: modelUrl, delegate },
     runningMode,
     numFaces,
     outputFacialTransformationMatrixes: true,

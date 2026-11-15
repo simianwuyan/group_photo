@@ -39,12 +39,13 @@ async function preload() {
       onProgress: (f) => { setBar(f * 0.6); lastProg = Date.now(); },
     });
     const lmReady = (async () => {
-      const buf = await fetchValidatedModel('models/face_landmarker.task',
+      // 先自取模型校验+自愈缓存（保证缓存条目完好），再用 path 加载
+      await fetchValidatedModel('models/face_landmarker.task',
         5, (s) => { say(s); lastProg = Date.now(); });
       setBar(0.8);
       lm = await createLandmarker({
         wasmBase: 'vendor/tasks-vision/wasm',
-        modelBuffer: buf,
+        modelUrl: 'models/face_landmarker.task',
       });
     })();
     await Promise.all([cvReady, lmReady]);
