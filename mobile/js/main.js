@@ -75,6 +75,18 @@ async function openCamera() {
 startBtn.onclick = () => { startBtn.textContent = '重新开启'; openCamera(); };
 flipBtn.onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; openCamera(); };
 
+// 紧急重置：注销 SW + 清空本站全部缓存并重载（修复历史坏缓存条目）
+$('resetBtn').onclick = async () => {
+  say('正在清理缓存并刷新…');
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    regs.forEach((r) => r.unregister());
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+  } catch { /* 忽略清理错误，直接刷新 */ }
+  location.reload();
+};
+
 // ---- 连拍 ----
 async function captureFrames(n, gapMs) {
   const out = [];
