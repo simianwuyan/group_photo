@@ -12,3 +12,9 @@
 
 算法参数与 `gpmerge/`（Python 版）逐字对齐：EAR 双阈值 0.14/0.72、五维权重
 (0.45, 0.20, 0.10, 0.15, 0.10)、最小替换增益 0.05、椭圆羽化 0.12。
+
+## 部署
+
+- **GitHub Pages**：push 到 main 自动部署（`.github/workflows/pages.yml`），
+  地址 https://simianwuyan.github.io/group_photo/
+- 魔搭 Static 创空间：全量上传本目录文件（zip 不解压）
