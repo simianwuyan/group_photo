@@ -11,6 +11,7 @@ const resultEl = $('result');
 const tableEl = $('table');
 const video = $('video');
 const startBtn = $('startBtn');
+const closeBtn = $('closeBtn');
 const flipBtn = $('flipBtn');
 const burstBtn = $('burstBtn');
 
@@ -67,6 +68,7 @@ async function openCamera() {
     });
     video.srcObject = stream;
     flipBtn.disabled = false;
+    closeBtn.disabled = false;
     burstBtn.disabled = !lm;
     say('');
   } catch (e) {
@@ -75,6 +77,16 @@ async function openCamera() {
 }
 startBtn.onclick = () => { startBtn.textContent = '重新开启'; openCamera(); };
 flipBtn.onclick = () => { facing = facing === 'environment' ? 'user' : 'environment'; openCamera(); };
+
+// 关闭摄像头：停流并复位按钮
+closeBtn.onclick = () => {
+  if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+  video.srcObject = null;
+  flipBtn.disabled = true;
+  burstBtn.disabled = true;
+  startBtn.textContent = '开启摄像头';
+  say('');
+};
 
 // 紧急重置：注销 SW + 清空本站全部缓存并重载（修复历史坏缓存条目）
 $('resetBtn').onclick = async () => {

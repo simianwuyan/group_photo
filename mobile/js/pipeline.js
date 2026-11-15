@@ -195,7 +195,8 @@ export async function mergeBurst(images, landmarker, cfg = MERGE_CONFIG, onProgr
     let face = framesFaces[baseIdx].find((f) => f.personId === r.personId) || null;
     if (!face) face = framesFaces[r.srcFrame].find((f) => f.personId === r.personId);
     const { x, y, w, h } = face.box;
-    const color = r.action === 'kept' ? [80, 190, 80] : [60, 140, 255];   // BGR：绿=保留 橙=替换
+    // OpenCV.js 的 Scalar 必须 4 元素（Python 允许 3 元素）
+    const color = r.action === 'kept' ? [80, 190, 80, 255] : [60, 140, 255, 255];   // BGR：绿=保留 橙=替换
     cv.rectangle(annotated, new cv.Point(x, y), new cv.Point(x + w, y + h), color, 2);
     const label = `P${r.personId} ${r.action}`
       + (r.action.startsWith('swapped') ? ` <- ${names[r.srcFrame]}` : '');

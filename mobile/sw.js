@@ -1,9 +1,9 @@
-// PWA Ô¤»º´æ£ºÈ«²¿Ëã·¨×ÊÔ´ÀëÏß¿ÉÓÃ£¨Ê×´ÎÁªÍøºó¼´¿É·ÉÐÐÄ£Ê½Ê¹ÓÃ£©¡£
-// Á½¸ö·ÀÓù£¨¾ùÎªÏßÉÏ²È¿Óºó¼Ó¹Ì£©£º
-// 1. ÔËÐÐÊ± fetch ²»×ö»º´æÐ´»Ø¡ª¡ªÂýÍøÖÐ¶Ï»á²úÉú"Í·ÍêÕû body ½Ø¶Ï"µÄ»µÌõÄ¿£»
-// 2. install Öð¸ö»º´æ²¢¶ÔÄ£ÐÍÐ£Ñé zip ÍêÕûÐÔ£¨Í·²¿ PK + Î²²¿ EOCD£¬½Ø¶Ï²»½ø»º´æ£»
-//    Ò³Ãæ²à fetchValidatedModel »á×ÔÈ¡²¢×ÔÓúÐ´»ØÕýÈ·×Ö½Ú£©¡£
-const CACHE = 'gpmerge-mobile-v6';
+ï»¿// PWA é¢„ç¼“å­˜ï¼šå…¨éƒ¨ç®—æ³•èµ„æºç¦»çº¿å¯ç”¨ï¼ˆé¦–æ¬¡è”ç½‘åŽå³å¯é£žè¡Œæ¨¡å¼ä½¿ç”¨ï¼‰ã€‚
+// ä¸¤ä¸ªé˜²å¾¡ï¼ˆå‡ä¸ºçº¿ä¸Šè¸©å‘åŽåŠ å›ºï¼‰ï¼š
+// 1. è¿è¡Œæ—¶ fetch ä¸åšç¼“å­˜å†™å›žâ€”â€”æ…¢ç½‘ä¸­æ–­ä¼šäº§ç”Ÿ"å¤´å®Œæ•´ body æˆªæ–­"çš„åæ¡ç›®ï¼›
+// 2. install é€ä¸ªç¼“å­˜å¹¶å¯¹æ¨¡åž‹æ ¡éªŒ zip å®Œæ•´æ€§ï¼ˆå¤´éƒ¨ PK + å°¾éƒ¨ EOCDï¼Œæˆªæ–­ä¸è¿›ç¼“å­˜ï¼›
+//    é¡µé¢ä¾§ fetchValidatedModel ä¼šè‡ªå–å¹¶è‡ªæ„ˆå†™å›žæ­£ç¡®å­—èŠ‚ï¼‰ã€‚
+const CACHE = 'gpmerge-mobile-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -33,7 +33,7 @@ self.addEventListener('install', (e) => {
       try {
         const res = await fetch(url);
         if (!res.ok) continue;
-        // Ä£ÐÍÀà×ÊÔ´Ð£Ñé zip ÍêÕûÐÔ£¨Î²²¿ EOCD£»½Ø¶ÏÏìÓ¦²»½ø»º´æ£©
+        // æ¨¡åž‹ç±»èµ„æºæ ¡éªŒ zip å®Œæ•´æ€§ï¼ˆå°¾éƒ¨ EOCDï¼›æˆªæ–­å“åº”ä¸è¿›ç¼“å­˜ï¼‰
         if (url.endsWith('.task')) {
           const buf = new Uint8Array(await res.clone().arrayBuffer());
           let eocd = false;
@@ -49,7 +49,7 @@ self.addEventListener('install', (e) => {
           continue;
         }
         await cache.put(url, res);
-      } catch { /* µ¥ÏîÊ§°ÜÌø¹ý£¬Ò³Ãæ²à×ÔÈ¡¶µµ× */ }
+      } catch { /* å•é¡¹å¤±è´¥è·³è¿‡ï¼Œé¡µé¢ä¾§è‡ªå–å…œåº• */ }
     }
     await self.skipWaiting();
   })());
@@ -63,6 +63,6 @@ self.addEventListener('activate', (e) => {
 
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  // Ô¤»º´æÃüÖÐÖ±½ÓÓÃ£»Î´Ô¤»º´æµÄ×ÊÔ´Ö±Á¬ÍøÂç£¨²»Ð´»Ø»º´æ£©
+  // é¢„ç¼“å­˜å‘½ä¸­ç›´æŽ¥ç”¨ï¼›æœªé¢„ç¼“å­˜çš„èµ„æºç›´è¿žç½‘ç»œï¼ˆä¸å†™å›žç¼“å­˜ï¼‰
   e.respondWith(caches.match(e.request).then((hit) => hit || fetch(e.request)));
 });
