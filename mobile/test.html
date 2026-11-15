@@ -24,7 +24,7 @@
 
 <script type="module">
 import { loadOpenCv } from './js/ocv.js';
-import { createLandmarker } from './js/mp-landmarks.js';
+import { createLandmarker, fetchValidatedModel } from './js/mp-landmarks.js';
 import { mergeBurst } from './js/pipeline.js';
 import { eyesOpenScore, EAR_BLINK_ABS, EAR_RATIO_OPEN } from './js/scoring.js';
 
@@ -63,9 +63,10 @@ $('run').onclick = async () => {
 
     say('加载 FaceLandmarker（GPU delegate）…');
     reportProgress('loading-landmarker');
+    const modelBuf = await fetchValidatedModel('models/face_landmarker.task');
     const lm = await createLandmarker({
       wasmBase: 'vendor/tasks-vision/wasm',
-      modelUrl: 'models/face_landmarker.task',
+      modelBuffer: modelBuf,
     });
     log('FaceLandmarker 就绪');
 

@@ -8,10 +8,10 @@ export const IRIS_L = 473;
 export const IRIS_R = 468;
 export const ALIGN_ANCHORS = [33, 263, 133, 362, 1, 61, 291, 152];
 
-export async function createLandmarker({ wasmBase, modelUrl, numFaces = 30, runningMode = 'IMAGE' }) {
+export async function createLandmarker({ wasmBase, modelBuffer, numFaces = 30, runningMode = 'IMAGE' }) {
   const fileset = await FilesetResolver.forVisionTasks(wasmBase);
   const opts = (delegate) => ({
-    baseOptions: { modelAssetPath: modelUrl, delegate },
+    baseOptions: { modelAssetBuffer: modelBuffer, delegate },
     runningMode,
     numFaces,
     outputFacialTransformationMatrixes: true,
@@ -24,6 +24,44 @@ export async function createLandmarker({ wasmBase, modelUrl, numFaces = 30, runn
     lm = await FaceLandmarker.createFromOptions(fileset, opts('CPU'));
   }
   return { detectFaces: (source, width, height, frameIdx) => detectFaces(lm, source, width, height, frameIdx) };
+}
+
+// 页面自取模型并校验 zip 魔数（PK）——不信任 mediapipe 内部 fetch 与 SW 缓存层：
+// 任一环节（CDN/WAF/SW 缓存）返回坏字节都会被这里拦截并重试（带 cache-busting 参数）。
+// 成功后把正确字节写回各版本缓存，自愈可能存在的坏条目。
+export async function fetchValidatedModel(modelUrl, attempts = 5, onStatus = () => {}) {
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    const url = i === 0 ? modelUrl : `${modelUrl}?r=${i}&t=${Date.now()}`;
+    onStatus(i === 0 ? '下载模型…' : `重试下载模型（第 ${i + 1}/${attempts} 次）…`);
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const buf = new Uint8Array(await res.arrayBuffer());
+      if (buf.length > 100000 && buf[0] === 0x50 && buf[1] === 0x4b) {
+        onStatus(`模型校验通过（${(buf.length / 1048576).toFixed(1)}MB）`);
+        // 自愈：把正确字节写回所有 gpmerge 缓存，修复可能的坏条目
+        try {
+          const keys = await caches.keys();
+          for (const k of keys) {
+            if (!k.startsWith('gpmerge-mobile-')) continue;
+            const c = await caches.open(k);
+            await c.put(modelUrl, new Response(buf, {
+              headers: { 'content-type': 'application/octet-stream' },
+            }));
+          }
+        } catch { /* 自愈失败不影响主流程 */ }
+        return buf;
+      }
+      lastErr = new Error(`第 ${i + 1} 次取到无效内容（${buf.length} 字节，非模型文件）`);
+      console.warn('[landmarks]', lastErr.message);
+    } catch (e) {
+      lastErr = e;
+      console.warn('[landmarks] 模型下载失败:', e.message);
+    }
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 800 * (i + 1)));
+  }
+  throw lastErr || new Error('模型校验失败');
 }
 
 export function makeFace(pts, frameIdx) {

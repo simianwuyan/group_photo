@@ -1,6 +1,6 @@
 // 手机端主逻辑：资源预加载 → 摄像头连拍 → 本地合并 → 结果展示。
 import { loadOpenCv } from './ocv.js';
-import { createLandmarker } from './mp-landmarks.js';
+import { createLandmarker, fetchValidatedModel } from './mp-landmarks.js';
 import { mergeBurst } from './pipeline.js';
 import { matToCanvas } from './compositing.js';
 
@@ -39,9 +39,12 @@ async function preload() {
       onProgress: (f) => { setBar(f * 0.6); lastProg = Date.now(); },
     });
     const lmReady = (async () => {
+      const buf = await fetchValidatedModel('models/face_landmarker.task',
+        5, (s) => { say(s); lastProg = Date.now(); });
+      setBar(0.8);
       lm = await createLandmarker({
         wasmBase: 'vendor/tasks-vision/wasm',
-        modelUrl: 'models/face_landmarker.task',
+        modelBuffer: buf,
       });
     })();
     await Promise.all([cvReady, lmReady]);
