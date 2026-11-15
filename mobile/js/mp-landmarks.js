@@ -30,12 +30,12 @@ export async function createLandmarker({ wasmBase, modelUrl, numFaces = 30, runn
 }
 
 // 页面自取模型并校验 zip 完整性——不信任 mediapipe 内部 fetch 与 SW 缓存层。
-// 校验三项：大小 ≥ 1MB、头部 PK 魔数、**尾部 EOCD 记录**（截断的 zip 只以 PK
-// 开头而无中央目录，之前仅校验 PK 时截断模型会漏过并导致 mediapipe zip 错误）。
-// 成功后把正确字节写回所有 gpmerge 缓存，自愈可能存在的坏条目。
+// 校验两项：大小 ≥ 1MB、**尾部 EOCD 记录存在**（截断的模型没有中央目录结尾；
+// 注意官方 .task 文件可能带 \x00\x00 前缀，头部不是 PK——EOCD 是唯一可靠的
+// 完整性标志，之前误查头部 PK 把完好模型判为损坏）。成功后把正确字节写回
+// 所有 gpmerge 缓存，自愈可能存在的坏条目。
 export function looksLikeCompleteModel(buf) {
   if (buf.length < 1000000) return false;                      // 模型应约 3.7MB
-  if (!(buf[0] === 0x50 && buf[1] === 0x4b)) return false;     // zip 头 PK\x03\x04
   const scanStart = Math.max(0, buf.length - 66000);           // EOCD 在尾部
   for (let i = buf.length - 22; i >= scanStart; i--) {
     if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x05 && buf[i + 3] === 0x06) {

@@ -33,19 +33,16 @@ self.addEventListener('install', (e) => {
       try {
         const res = await fetch(url);
         if (!res.ok) continue;
-        // 模型类资源校验 zip 完整性：截断响应不进缓存
+        // 模型类资源校验 zip 完整性（尾部 EOCD；截断响应不进缓存）
         if (url.endsWith('.task')) {
           const buf = new Uint8Array(await res.clone().arrayBuffer());
-          const ok = buf.length > 1000000 && buf[0] === 0x50 && buf[1] === 0x4b
-            && (() => {
-              for (let i = buf.length - 22; i >= Math.max(0, buf.length - 66000); i--) {
-                if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x05 && buf[i + 3] === 0x06) {
-                  return true;
-                }
-              }
-              return false;
-            })();
-          if (!ok) continue;
+          let eocd = false;
+          for (let i = buf.length - 22; i >= Math.max(0, buf.length - 66000); i--) {
+            if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x05 && buf[i + 3] === 0x06) {
+              eocd = true; break;
+            }
+          }
+          if (!eocd || buf.length < 1000000) continue;
           await cache.put(url, new Response(buf, {
             headers: { 'content-type': 'application/octet-stream' },
           }));
