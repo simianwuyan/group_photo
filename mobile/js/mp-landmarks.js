@@ -26,9 +26,22 @@ export async function createLandmarker({ wasmBase, modelBuffer, numFaces = 30, r
   return { detectFaces: (source, width, height, frameIdx) => detectFaces(lm, source, width, height, frameIdx) };
 }
 
-// 页面自取模型并校验 zip 魔数（PK）——不信任 mediapipe 内部 fetch 与 SW 缓存层：
-// 任一环节（CDN/WAF/SW 缓存）返回坏字节都会被这里拦截并重试（带 cache-busting 参数）。
-// 成功后把正确字节写回各版本缓存，自愈可能存在的坏条目。
+// 页面自取模型并校验 zip 完整性——不信任 mediapipe 内部 fetch 与 SW 缓存层。
+// 校验三项：大小 ≥ 1MB、头部 PK 魔数、**尾部 EOCD 记录**（截断的 zip 只以 PK
+// 开头而无中央目录，之前仅校验 PK 时截断模型会漏过并导致 mediapipe zip 错误）。
+// 成功后把正确字节写回所有 gpmerge 缓存，自愈可能存在的坏条目。
+export function looksLikeCompleteModel(buf) {
+  if (buf.length < 1000000) return false;                      // 模型应约 3.7MB
+  if (!(buf[0] === 0x50 && buf[1] === 0x4b)) return false;     // zip 头 PK\x03\x04
+  const scanStart = Math.max(0, buf.length - 66000);           // EOCD 在尾部
+  for (let i = buf.length - 22; i >= scanStart; i--) {
+    if (buf[i] === 0x50 && buf[i + 1] === 0x4b && buf[i + 2] === 0x05 && buf[i + 3] === 0x06) {
+      return true;                                             // 找到 EOCD PK\x05\x06
+    }
+  }
+  return false;
+}
+
 export async function fetchValidatedModel(modelUrl, attempts = 5, onStatus = () => {}) {
   let lastErr = null;
   for (let i = 0; i < attempts; i++) {
@@ -38,7 +51,7 @@ export async function fetchValidatedModel(modelUrl, attempts = 5, onStatus = () 
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const buf = new Uint8Array(await res.arrayBuffer());
-      if (buf.length > 100000 && buf[0] === 0x50 && buf[1] === 0x4b) {
+      if (looksLikeCompleteModel(buf)) {
         onStatus(`模型校验通过（${(buf.length / 1048576).toFixed(1)}MB）`);
         // 自愈：把正确字节写回所有 gpmerge 缓存，修复可能的坏条目
         try {
@@ -53,7 +66,7 @@ export async function fetchValidatedModel(modelUrl, attempts = 5, onStatus = () 
         } catch { /* 自愈失败不影响主流程 */ }
         return buf;
       }
-      lastErr = new Error(`第 ${i + 1} 次取到无效内容（${buf.length} 字节，非模型文件）`);
+      lastErr = new Error(`第 ${i + 1} 次取到无效内容（${buf.length} 字节，模型不完整）`);
       console.warn('[landmarks]', lastErr.message);
     } catch (e) {
       lastErr = e;
